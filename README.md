@@ -18,6 +18,10 @@
   macOS 13 Ventura or later · Apple Silicon and Intel · Free and open source
 </p>
 
+<p align="center">
+  <img src="docs/demo.gif" width="720" alt="Animation: at login, Mail, Calendar, Messages and Notes open their windows; Login Window Hider hides them into the Dock while they keep running; then the menu bar menu opens, listing each login app with a switch">
+</p>
+
 ---
 
 ## Why
@@ -106,6 +110,7 @@ LOGINHIDER_FORCE_STARTUP=1 "build/Login Window Hider.app/Contents/MacOS/LoginWin
 | `Info.plist` | App settings |
 | `build.sh` | Builds a universal app (Apple Silicon and Intel) |
 | `make_dmg.sh` | Packages the app as a .dmg |
+| `docs/demo/make_demo.sh` | Renders the animated demo at the top of this page |
 
 ## Credits
 

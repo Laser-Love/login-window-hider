@@ -25,6 +25,16 @@ enum Settings {
             if let value = old.object(forKey: key), d.object(forKey: key) == nil { d.set(value, forKey: key) }
         }
     }
+    /// The choices on the "Keep hiding for" slider, in seconds.
+    static let watchChoices: [TimeInterval] = [15, 20, 30, 45, 60, 90, 120]
+    /// How long after starting the app keeps hiding login apps' windows. 1 minute unless changed with the slider.
+    static var watchSeconds: TimeInterval {
+        get {
+            let saved = d.object(forKey: "watchSeconds") as? Double ?? 60
+            return min(max(saved, watchChoices.first!), watchChoices.last!)
+        }
+        set { d.set(newValue, forKey: "watchSeconds") }
+    }
     /// Bundle IDs switched off (never hidden).
     static var neverHide: Set<String> {
         get { Set(d.stringArray(forKey: "neverHide") ?? []) }
@@ -178,6 +188,132 @@ final class HeaderView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
+// MARK: - The "Window monitoring lasts" slider under the app list
+
+final class WatchSliderView: NSView {
+    private let value = NSTextField(labelWithString: "")
+
+    /// Where the knob rests for each choice, from 0 (left end) to 1 (right end). 1 minute sits at the center of the bar:
+    /// the choices up to 1 minute are spread evenly over the left half, the longer ones over the right half.
+    static let positions: [Double] = {
+        let choices = Settings.watchChoices
+        let mid = choices.firstIndex(of: 60) ?? choices.count / 2
+        return choices.indices.map { i in
+            i <= mid ? 0.5 * Double(i) / Double(max(mid, 1)) : 0.5 + 0.5 * Double(i - mid) / Double(choices.count - 1 - mid)
+        }
+    }()
+
+    init() {
+        let w = AppRowView.width, edge = AppRowView.edge
+        let font = NSFont.menuFont(ofSize: 0)
+        let title = NSTextField(labelWithString: "Window monitoring lasts")
+        title.font = font
+        let th = title.fittingSize.height
+        let capInset = font.ascender - font.capHeight   // from the top of the text field to the top of the letters
+        let topGap: CGFloat = 24, sliderY: CGFloat = 8, sliderH: CGFloat = 20
+        let titleY = sliderY + sliderH + 10
+        let h = (titleY + th - capInset + topGap).rounded()
+        super.init(frame: NSRect(x: 0, y: 0, width: w, height: h))
+        autoresizingMask = [.width]
+
+        // Text fields inset their text by 2 pt, so start 2 pt early to line the text up with the icons' visible edge.
+        title.frame = NSRect(x: edge - 2, y: titleY, width: 180, height: th)
+        addSubview(title)
+
+        let choices = Settings.watchChoices
+        let current = Settings.watchSeconds
+        let index = choices.indices.min { abs(choices[$0] - current) < abs(choices[$1] - current) } ?? 0
+
+        // The value: 2 pt smaller than the title, on the same baseline, at the right edge.
+        value.font = NSFont.menuFont(ofSize: font.pointSize - 2)
+        value.textColor = .secondaryLabelColor
+        value.alignment = .right
+        value.stringValue = WatchSliderView.text(for: choices[index])
+        let vh = value.fittingSize.height
+        let valueY = titleY + title.lastBaselineOffsetFromBottom - value.lastBaselineOffsetFromBottom
+        value.frame = NSRect(x: w - edge - 60 + 2, y: valueY, width: 60, height: vh)
+        value.autoresizingMask = [.minXMargin]
+        addSubview(value)
+
+        let slider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: self, action: #selector(moved(_:)))
+        let cell = MinimalSliderCell()
+        cell.minValue = 0
+        cell.maxValue = 1
+        cell.target = self
+        cell.action = #selector(moved(_:))
+        slider.cell = cell
+        slider.isContinuous = true
+        slider.doubleValue = WatchSliderView.positions[index]
+        slider.frame = NSRect(x: edge, y: sliderY, width: w - 2 * edge, height: sliderH)
+        slider.autoresizingMask = [.width]
+        slider.setAccessibilityLabel("Window monitoring lasts")
+        addSubview(slider)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    @objc func moved(_ sender: NSSlider) {
+        // Snap the knob to the nearest choice.
+        let positions = WatchSliderView.positions
+        let index = positions.indices.min { abs(positions[$0] - sender.doubleValue) < abs(positions[$1] - sender.doubleValue) } ?? 0
+        sender.doubleValue = positions[index]
+        let seconds = Settings.watchChoices[index]
+        Settings.watchSeconds = seconds
+        value.stringValue = WatchSliderView.text(for: seconds)
+    }
+
+    static func text(for seconds: TimeInterval) -> String {
+        if seconds < 60 { return "\(Int(seconds)) sec" }
+        let minutes = seconds / 60
+        return minutes == minutes.rounded() ? "\(Int(minutes)) min" : "\(minutes) min"
+    }
+}
+
+/// Draws the slider in a plain, neutral style: a thin gray line with a white knob (no accent color, no tick marks).
+final class MinimalSliderCell: NSSliderCell {
+    private let knobSize: CGFloat = 14
+    private let trackHeight: CGFloat = 3
+    private var bounds: NSRect { controlView?.bounds ?? .zero }
+    private var track: NSRect {
+        let b = bounds
+        return NSRect(x: b.minX, y: b.midY - trackHeight / 2, width: b.width, height: trackHeight)
+    }
+    private var knob: NSRect {
+        let t = track
+        let fraction = maxValue > minValue ? CGFloat((doubleValue - minValue) / (maxValue - minValue)) : 0
+        let x = t.minX + fraction * (t.width - knobSize)
+        return NSRect(x: x, y: bounds.midY - knobSize / 2, width: knobSize, height: knobSize)
+    }
+
+    override func barRect(flipped: Bool) -> NSRect { track }
+    override func knobRect(flipped: Bool) -> NSRect { knob }
+
+    override func drawBar(inside rect: NSRect, flipped: Bool) {
+        let t = track, k = knob, r = t.height / 2
+        NSColor.labelColor.withAlphaComponent(0.14).setFill()
+        NSBezierPath(roundedRect: t, xRadius: r, yRadius: r).fill()
+        // The part left of the knob is filled in a darker gray.
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(roundedRect: t, xRadius: r, yRadius: r).addClip()
+        NSColor.labelColor.withAlphaComponent(0.50).setFill()
+        NSRect(x: t.minX, y: t.minY, width: k.midX - t.minX, height: t.height).fill()
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    override func drawKnob(_ knobRect: NSRect) {
+        let k = knob
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.28)
+        shadow.shadowBlurRadius = 2.5
+        shadow.shadowOffset = NSSize(width: 0, height: -0.5)
+        shadow.set()
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: k.insetBy(dx: 0.5, dy: 0.5)).fill()
+        NSGraphicsContext.restoreGraphicsState()
+    }
+}
+
 // MARK: - App
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -185,8 +321,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let loginGrace: TimeInterval = 5 * 60
     /// How long to wait after starting before hiding anything.
     let startDelay: TimeInterval = 5
-    /// Login apps are kept hidden until this long after Login Window Hider starts (about 1 minute after login).
-    let watchWindow: TimeInterval = 60
     /// An app that comes forward within this long after a click or key press counts as opened by you.
     let userActionWindow: TimeInterval = 1.5
 
@@ -265,7 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Hiding
 
-    /// Checks twice a second for about a minute after login. Waits 5 seconds before hiding
+    /// Checks twice a second for as long as the "Keep hiding for" slider says (1 minute unless changed). Waits 5 seconds before hiding
     /// anything, then keeps each login app hidden, so apps that show their windows late get hidden too.
     func startWatching() {
         sweepTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in self?.sweep() }
@@ -274,7 +408,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func sweep() {
         noteFirstInput()
         let now = Date()
-        if now.timeIntervalSince(started) > watchWindow {
+        // Login apps are kept hidden until this long after Login Window Hider starts (the "Keep hiding for" slider).
+        if now.timeIntervalSince(started) > Settings.watchSeconds {
             sweepTimer?.invalidate(); sweepTimer = nil
             return
         }
@@ -339,11 +474,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             empty.isEnabled = false
             menu.addItem(empty)
         }
-        for (i, (id, name)) in apps.enumerated() {
+        for (id, name) in apps {
             let item = NSMenuItem()
-            item.view = AppRowView(bundleID: id, name: name, showsDivider: i < apps.count - 1)
+            item.view = AppRowView(bundleID: id, name: name, showsDivider: true)
             menu.addItem(item)
         }
+        let slider = NSMenuItem()
+        slider.view = WatchSliderView()
+        menu.addItem(slider)
 
         menu.addItem(.separator())
         let start = NSMenuItem(title: "Start Login Window Hider at Login", action: #selector(toggleStartAtLogin), keyEquivalent: "")

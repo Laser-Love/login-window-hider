@@ -34,9 +34,9 @@ Login Window Hider brings it back.
 
 - **Hides login apps' windows.** A few seconds after you log in, it hides the windows of the apps in **System Settings → General → Login Items → Open at Login**. The apps keep running in the background and stay in the Dock. Click one to bring it back.
 - **Only touches login apps.** Anything you open yourself is never hidden. If you click a login app during startup, it stays visible too.
-- **Keeps them hidden.** Some apps show their window a little late. For the first minute after login, it hides them again if they reappear on their own.
+- **Keeps them hidden.** Some apps show their window a little late. For the first minute after login, it hides them again if they reappear on their own. A slider in the menu sets how long it keeps watching, from 15 seconds to 2 minutes.
 - **One switch per app.** Click the menu bar icon to see your login apps, then switch off any you'd rather see at login.
-- **Stays out of the way.** No Dock icon, no windows, and it does nothing after the first minute.
+- **Stays out of the way.** No Dock icon, no windows, and it does nothing once the watching time is up.
 
 <p align="center">
   <img src="docs/menu.png" width="640" alt="The Login Window Hider menu in light and dark mode, listing login apps with a switch for each and a Window monitoring lasts slider set to 1 min">
@@ -64,6 +64,7 @@ The first time it runs, macOS asks: **"Login Window Hider wants to control Syste
 ## Using it
 
 - **Click the menu bar icon** to see your login apps. Switch an app **on** to hide it at login, or **off** to leave it alone.
+- **Choose how long it watches** with the **Window monitoring lasts** slider: 15 seconds to 2 minutes (1 minute by default). The new time applies from your next login.
 - **Add or remove login apps** in System Settings → General → Login Items. The menu picks up changes the next time you open it.
 - **Bring a hidden app back** by clicking it in the Dock or switching to it with ⌘-Tab.
 - **Turn off Start at Login** or **Quit** from the bottom of the menu.
@@ -72,7 +73,7 @@ The first time it runs, macOS asks: **"Login Window Hider wants to control Syste
 
 - At login it reads the **Open at Login** list from System Events and skips menu bar and background-only apps, since they have no windows.
 - It waits **5 seconds** so login can settle, then hides each listed app with the standard macOS "Hide" (the same as pressing ⌘H in that app).
-- Until **1 minute** after login, it checks twice a second and hides any listed app that has shown itself again.
+- Until **1 minute** after login (or the time set with the slider), it checks twice a second and hides any listed app that has shown itself again.
 - If a login app comes forward right after you click or type (Dock, ⌘-Tab, Spotlight or its window), it counts as yours and is left alone. It finds out when you last clicked or typed from macOS's input-timing information, which doesn't include anything you type or click on.
 - Apps that start through their own helper instead of Open at Login (for example Spotify or 1Password) aren't in the list.
 

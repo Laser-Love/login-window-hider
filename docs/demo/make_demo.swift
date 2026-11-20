@@ -96,17 +96,20 @@ func menuImage() -> NSImage {
     let rows = apps.map { ($0.id, $0.name) }
     let pad: CGFloat = 6, itemH: CGFloat = 22
     let w = AppRowView.width
-    let h = pad + 22 + AppRowView.height * CGFloat(rows.count) + 11 + itemH * 2 + pad
+    let slider = WatchSliderView()
+    let h = pad + 22 + AppRowView.height * CGFloat(rows.count) + slider.frame.height + 11 + itemH * 2 + pad
     let root = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
     root.wantsLayer = true
     root.layer?.backgroundColor = hex(0xF2F1F6).cgColor
     var y = h - pad - 22
     let head = HeaderView(title: "Hide at login"); head.frame.origin.y = y; root.addSubview(head)
-    for (i, (id, name)) in rows.enumerated() {
+    for (id, name) in rows {
         y -= AppRowView.height
-        let row = AppRowView(bundleID: id, name: name, showsDivider: i < rows.count - 1)
+        let row = AppRowView(bundleID: id, name: name, showsDivider: true)
         row.frame.origin.y = y; root.addSubview(row)
     }
+    y -= slider.frame.height
+    slider.frame.origin.y = y; root.addSubview(slider)
     y -= 11
     let sep = NSBox(frame: NSRect(x: 12, y: y + 5, width: w - 24, height: 1)); sep.boxType = .separator; root.addSubview(sep)
     for (t, check, key) in [("Start Login Window Hider at Login", true, ""), ("Quit Login Window Hider", false, "⌘Q")] {

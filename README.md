@@ -39,7 +39,7 @@ Login Window Hider brings it back.
 - **Stays out of the way.** No Dock icon, no windows, and it does nothing after the first minute.
 
 <p align="center">
-  <img src="docs/menu.png" width="640" alt="The Login Window Hider menu in light and dark mode, listing login apps with a switch for each">
+  <img src="docs/menu.png" width="640" alt="The Login Window Hider menu in light and dark mode, listing login apps with a switch for each and a Window monitoring lasts slider set to 1 min">
 </p>
 
 ## Install
